@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # logging.basicConfig(filename='logfile.log', level=logging.DEBUG)
 
     @Memo
-    @MemoClean
+#    @MemoClean
 #    @memo_clean # memo_clean is lighter and allows for deeper recursion (~x2)
     def fibonacci(n):
         if n < 2:
