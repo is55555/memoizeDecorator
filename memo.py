@@ -185,6 +185,9 @@ if __name__ == "__main__":
         def plus_one(self):
             return self.value + 1
 
+        def plus_two(self):
+            return self.value + 2
+
     val1 = Aclass(1).val
     val2 = Aclass(2).val
     print "->", val1(), val2()
@@ -213,6 +216,23 @@ if __name__ == "__main__":
     time.sleep(1)
     memoized[Aclass.plus_one].memo_clear_cache()
         # TODO: include test for functions of the same name in different classes
+
+    o7 = Aclass(7)
+
+    memoed_o7_plus2 = Memo(o7.plus_two) # this format is currently not working - interface should probably respect inspection
+
+    res = memoed_o7_plus2()
+
+    print "res ", res
+    o7.value = 200
+    res = memoed_o7_plus2()
+    print "res ", res
+    #memoized[Aclass.plus_two].memo_clear_cache()
+    res = memoed_o7_plus2()
+    print "res ", res
+    print memoized
+
+
     print should_be_three, o2.plus_one(), o1.plus_one() # 3 11 101 (expected behaviour)
 
     # the cache cannot be expected to track changes in the instance,

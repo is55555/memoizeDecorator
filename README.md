@@ -1,6 +1,8 @@
 # Memoize decorator
 (Tried and tested in Python 2.7)
 
+Version: beta (still completing features. Will be alpha when test cases are complete and 0.1, etc. afterwards)
+
 Implements several decorators for memoization.
 
 Currently a work in progress, although they are functional. Pending tests and a few more sophisticated decorators I have in mind.
@@ -25,6 +27,11 @@ Sometimes we want to free up the cache when the call is done:
 
     print fibonacci(200)
 
+
+Supports caching for methods. User is expected to clear the cache on each Class.method as required if the state of
+the instances change in a way that invalidates the cache. More sophisticated behaviour than this is unreasonable to do
+at the memoizer level and would induce more mistakes than otherwise. The only reasonable improvement would be caching
+by instance instead and clearing instance by instance.
 
 # Installation
 
