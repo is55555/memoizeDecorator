@@ -1,7 +1,7 @@
 import cPickle
 import logging
 
-
+# light version of memo with clean-up
 def memo_clean(f):
     "clears cache on last return"
 

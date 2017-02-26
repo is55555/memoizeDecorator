@@ -17,7 +17,7 @@ Currently a work in progress, although they are functional. Pending tests and a 
 
 Sometimes we want to free up the cache when the call is done:
 
-    @MemoClean # cleans the cache when the call is finished
+    @Memo(clean = True) # cleans the cache when the call is finished
     def fibonacci(n):
         if n < 2:
             return n
