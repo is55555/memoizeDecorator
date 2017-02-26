@@ -1,5 +1,7 @@
 import cPickle
 import logging
+import functools
+
 
 # light version of memo with clean-up
 def memo_clean(f):
@@ -38,6 +40,9 @@ def memo_clean(f):
 
     return closure
 
+
+memoized = {}
+
 # the following is cleaner but allows for less recursion (takes more stack space) - apparently ~2x
 # using clean = True it also cleans the cache at the end of the call (see examples)
 class _Memo(object):
@@ -49,6 +54,7 @@ class _Memo(object):
         self._cache = {}
         self._clean = clean
         logging.info("memo_clean mode = %s", clean)
+        memoized[self.func] = self
 
     def __call__(self,  *args, **kwargs):
         self._call_count += 1
@@ -77,8 +83,21 @@ class _Memo(object):
                 self._cache.clear()
                 logging.info("memo_clean cleared cache")
 
+    def __str__(self):
+        return "Memoized_" + self.func.__name__
 
-def Memo(function=None, clean=False):
+    def __get__(self, obj, obj_type=None):  # support instance methods
+        if obj is None:
+            return self.func
+        return functools.partial(self, obj)
+
+    #@classmethod
+    def memo_clear_cache(self):
+        self._cache.clear()
+        logging.info("memo_clean cleared cache explicitly - " + self.func.__name__ + " in " +  str(self))
+
+
+def Memo(function=None, clean=False): # named uppercase because it simply wraps a class
     if function:
         return _Memo(function, clean=clean)
     else:
@@ -131,4 +150,72 @@ if __name__ == "__main__":
 
     print [fibonacci(i) for i in xrange(151)]
 
+    print fibonacci
+
+    class memoize_wrong(object): # to illustrate caveats of memoizing instance methods
+        def __init__(self, function):
+            self._function = function
+            self._cacheName = '_cache__' + function.__name__
+
+        def __get__(self, instance, cls=None):
+            self._instance = instance
+            return self
+
+        def __call__(self, *args):
+            cache = self._instance.__dict__.setdefault(self._cacheName, {})
+            if cache.has_key(args):
+                return cache[args]
+            else:
+                object = cache[args] = self._function(self._instance, *args)
+                return object
+
+    class Aclass(object):
+        def __init__(self, value):
+            self.value = value
+
+        @Memo
+        def val(self):
+            return self.value
+
+        @memoize_wrong
+        def val_(self):
+            return self.value
+
+        @Memo
+        def plus_one(self):
+            return self.value + 1
+
+    val1 = Aclass(1).val
+    val2 = Aclass(2).val
+    print "->", val1(), val2()
+    assert val1() != val2(), "FAIL!"
+
+    val1 = Aclass(1).val_
+    val2 = Aclass(2).val_
+    print "->", val1(), val2()
+    #assert val1() != val2(), "FAIL!"
+
+    o1 = Aclass(1)
+    o2 = Aclass(2)
+
+    import time
+    import sys
+    time.sleep(1)
+    should_be_three = o2.plus_one()
+    o2.value = 10
+    print should_be_three, o2.plus_one(), o1.plus_one() # 3 3 2
+    o1.value = 100
+    print should_be_three, o2.plus_one(), o1.plus_one() # 3 3 2 (expected behaviour) we haven't told the cache to clean
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+    print "-----"
+    time.sleep(1)
+    memoized[Aclass.plus_one].memo_clear_cache()
+        # TODO: include test for functions of the same name in different classes
+    print should_be_three, o2.plus_one(), o1.plus_one() # 3 11 101 (expected behaviour)
+
+    # the cache cannot be expected to track changes in the instance,
+
+    print "end"
 
