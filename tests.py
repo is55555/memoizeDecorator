@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger('memo')
 
 logging.basicConfig()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 sys.setrecursionlimit(2000) # allows for heavier tests with the fibonacci function
 
@@ -36,21 +36,39 @@ def profile_time(fn):
         elapsed_time = time.time() - start_time
 
         if fn.__name__ not in PROF_DATA:
-            PROF_DATA[fn.__name__] = [0, []]
-        PROF_DATA[fn.__name__][0] += 1
-        PROF_DATA[fn.__name__][1].append(elapsed_time)
+            PROF_DATA[fn.__name__] = {'count': 0, 'times': [], 'max': -1, 'avg': -1}
+        PROF_DATA[fn.__name__]['count'] += 1
+        PROF_DATA[fn.__name__]['times'].append(elapsed_time)
 
         return ret
 
     return with_profiling
 
 
+def calc_prof_data():
+    for fname, data in PROF_DATA.items():
+        max_time = max(data['times'])
+        avg_time = sum(data['times']) / len(data['times'])
+        #print "Function %s called %d times. " % (fname, data['count']),
+        #print 'Execution time max: %.3f, average: %.3f' % (max_time, avg_time)
+        PROF_DATA[fname]['max'] = max_time
+        PROF_DATA[fname]['avg'] = avg_time
+
 def print_prof_data():
     for fname, data in PROF_DATA.items():
-        max_time = max(data[1])
-        avg_time = sum(data[1]) / len(data[1])
-        print "Function %s called %d times. " % (fname, data[0]),
+        max_time = PROF_DATA[fname]['max']
+        avg_time = PROF_DATA[fname]['avg']
+        print "Function %s called %d times. " % (fname, data['count']),
         print 'Execution time max: %.3f, average: %.3f' % (max_time, avg_time)
+
+def calc_and_print_prof_data():
+    for fname, data in PROF_DATA.items():
+        max_time = max(data['times'])
+        avg_time = sum(data['times']) / len(data['times'])
+        print "Function %s called %d times. " % (fname, data['count']),
+        print 'Execution time max: %.3f, average: %.3f' % (max_time, avg_time)
+        PROF_DATA[fname]['max'] = max_time
+        PROF_DATA[fname]['avg'] = avg_time
 
 
 def clear_profile_time():
@@ -59,7 +77,7 @@ def clear_profile_time():
 
 @memo.Memo
 def fibonacci(n):
-    time.sleep(0.05)
+    time.sleep(0.02)
     if n < 2:
         return n
     return fibonacci(n - 2) + fibonacci(n - 1)
@@ -67,7 +85,7 @@ def fibonacci(n):
 
 @memo.memo_clean  # memo_clean is lighter and allows for deeper recursion (~x2)
 def fibonacci_clean(n):
-    time.sleep(0.05)
+    time.sleep(0.02)
     if n < 2:
         return n
     return fibonacci_clean(n - 2) + fibonacci_clean(n - 1)
@@ -76,7 +94,7 @@ def fibonacci_clean(n):
 hp = hpy()
 
 
-class TestCase_memo_clean(unittest.TestCase):
+class TestCase_memo(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -124,7 +142,9 @@ class TestCase_memo_clean(unittest.TestCase):
         slow_fib = profile_time(slowdown(fibonacci))
         fib_seq = [slow_fib(i) for i in xrange(1,51)]
         print fib_seq
-        print_prof_data()
+        calc_and_print_prof_data() # avg time should be well over > 0.1
+        # (it clears the cache between calls, going into fib many times over)
+        self.assertTrue(PROF_DATA['fibonacci']['avg'] < 0.1)
 
 
     def test_memo_clear_speed(self):
@@ -134,7 +154,9 @@ class TestCase_memo_clean(unittest.TestCase):
         slow_fib_clean = profile_time(slowdown(fibonacci_clean))
         fib_seq = [slow_fib_clean(i) for i in xrange(1,51)]
         print fib_seq
-        print_prof_data()
+        calc_and_print_prof_data() # avg time should be >= 0.05 and <= 0.1 in any remotely modern computer
+        # (close to 0.05 which is what the recursive call takes as a minimum)
+        self.assertTrue(PROF_DATA['fibonacci_clean']['avg'] > 0.1)
 
 
 if __name__ == '__main__':
