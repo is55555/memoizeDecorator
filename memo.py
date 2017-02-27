@@ -2,6 +2,8 @@ import cPickle
 import logging
 import functools
 
+logger = logging.getLogger('memo') # could also use  __name__ but I like making it explicit
+
 
 # light version of memo with clean-up
 def memo_clean(f):
@@ -12,6 +14,7 @@ def memo_clean(f):
                         # ... wouldn't work whereas a one-element list does.
     _cache = {}
 
+    @functools.wraps(f) # preserve function names
     def closure(*args, **kwargs):
         _call_count[0] += 1
         try:
@@ -23,20 +26,20 @@ def memo_clean(f):
                 try:
                     key = cPickle.dumps((args, kwargs))
                 except cPickle.PicklingError:
-                    logging.error("memo_clean error: could not store result")
+                    logger.error("memo_clean error: could not store result")
                     return f(*args, **kwargs) # executing anyway (could have chosen to just panic)
-                logging.info("memo_clean arguments not hashable, string conversion used instead")
+                logger.info("memo_clean arguments not hashable, string conversion used instead")
             if key not in _cache:
                 _cache[key] = f(*args, **kwargs)
-                logging.debug("memo_clean cache MISS -> %s", str(key))
+                logger.debug("memo_clean cache MISS -> %s", str(key))
             else:
-                logging.debug("memo_clean cache HIT  -> %s", str(key))
+                logger.debug("memo_clean cache HIT  -> %s", str(key))
             return _cache[key]
         finally:
             _call_count[0] -= 1
             if _call_count[0] == 0:
                 _cache.clear()
-                logging.info("memo_clean cleared cache")
+                logger.info("memo_clean cleared cache")
 
     return closure
 
@@ -50,15 +53,16 @@ class _Memo(object):
 
     def __init__(self, func, clean):
         self.func = func
+        functools.update_wrapper(self, func)
         self._call_count = 0
         self._cache = {}
         self._clean = clean
-        logging.info("memo_clean mode = %s", clean)
+        logger.info("memo_clean mode = %s", clean)
         memoized[self.func] = self
 
     def __call__(self,  *args, **kwargs):
         self._call_count += 1
-        logging.debug("memo_clean call count %s", self._call_count)
+        logger.debug("memo_clean call count %s", self._call_count)
         try:
             try: # this block finds out whether the arguments are hashable
                 if len(kwargs) != 0: raise ValueError
@@ -68,20 +72,20 @@ class _Memo(object):
                 try:
                     key = cPickle.dumps((args, kwargs))
                 except cPickle.UnpicklingError:
-                    logging.error("memo_clean error: could not store result")
+                    logger.error("memo_clean error: could not store result")
                     return self.func(*args, **kwargs)  # executing anyway (could have chosen to just panic)
-                logging.info("memo_clean arguments not hashable, string conversion used instead")
+                logger.info("memo_clean arguments not hashable, string conversion used instead")
             if key not in self._cache:
                 self._cache[key] = self.func(*args, **kwargs)
-                logging.debug("memo_clean cache MISS -> %s", str(key))
+                logger.debug("memo_clean cache MISS -> %s", str(key))
             else:
-                logging.debug("memo_clean cache HIT  -> %s", str(key))
+                logger.debug("memo_clean cache HIT  -> %s", str(key))
             return self._cache[key]
         finally:
             self._call_count -= 1
             if self._clean and self._call_count == 0:
                 self._cache.clear()
-                logging.info("memo_clean cleared cache")
+                logger.info("memo_clean cleared cache")
 
     def __str__(self):
         return "Memoized_" + self.func.__name__
@@ -94,13 +98,14 @@ class _Memo(object):
     #@classmethod
     def memo_clear_cache(self):
         self._cache.clear()
-        logging.info("memo_clean cleared cache explicitly - " + self.func.__name__ + " in " +  str(self))
+        logger.info("memo_clean cleared cache explicitly - " + self.func.__name__ + " in " +  str(self))
 
 
 def Memo(function=None, clean=False): # named uppercase because it simply wraps a class
     if function:
         return _Memo(function, clean=clean)
     else:
+#        @functools.wraps(function)
         def closure(f):
             return _Memo(f, clean=clean)
 

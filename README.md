@@ -5,6 +5,10 @@ Version: beta (still completing features. Will be alpha when test cases are comp
 
 Implements several decorators for memoization.
 
+
+Basic test cases are complete. To run tests, guppy (0.1.10) is required (for memory profiling).
+
+
 Currently a work in progress, although they are functional. Pending tests and a few more sophisticated decorators I have in mind.
 
 # Basic Usage:
