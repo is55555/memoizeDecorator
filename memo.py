@@ -60,15 +60,15 @@ class _Memo(object):
         logger.info("memo_clean mode = %s", clean)
 
         if memo_alias:
-            slot_name = memo_alias
+            self.slot_name = memo_alias
         else:
-            slot_name = func.__name__
+            self.slot_name = func.__name__
 
-        logger.info("slot name = %s", slot_name)
+        logger.info("slot name = %s", self.slot_name)
 
-        if slot_name in memoized:
-            raise BaseException("already memoized: " + slot_name)
-        memoized[slot_name] = self
+        if self.slot_name in memoized:
+            raise BaseException("already memoized: " + self.slot_name)
+        memoized[self.slot_name] = self
 
     def __call__(self,  *args, **kwargs):
         self._call_count += 1
@@ -95,7 +95,7 @@ class _Memo(object):
             self._call_count -= 1
             if self._clean and self._call_count == 0:
                 self._cache.clear()
-                logger.info("memo_clean cleared cache")
+                logger.info("memo_clean cleared cache - " + self.slot_name)
 
     def __str__(self):
         return "Memoized_" + self.func.__name__
@@ -122,8 +122,13 @@ def Memo(function=None, clean=False, memo_alias = False): # named uppercase beca
         return closure
 
 
+def print_memoized():
+    print "{"
+    for k, v in memoized.items():
+        print k, ":", v._cache, ","
+    print "}"
 
-# import tests # re-importing causes redefinition of the memoized function and a clash
+    # import tests # re-importing causes redefinition of the memoized function and a clash
 
 if __name__ == "__main__":
     #logging.basicConfig(level=logging.DEBUG)

@@ -84,6 +84,13 @@ def fibonacci(n):
     return fibonacci(n - 2) + fibonacci(n - 1)
 
 
+@memo.Memo(memo_alias='fact')
+def factorial(n):
+    time.sleep(0.02)
+    if n < 2:
+        return 1
+    return n * factorial(n - 1)
+
 @memo.memo_clean  # memo_clean is lighter and allows for deeper recursion (~x2)
 def fibonacci_clean(n):
     time.sleep(0.02)
@@ -101,10 +108,14 @@ class TestCase_memo(unittest.TestCase):
 
     def tearDown(self):
         print "tearDown"
-        print memo.memoized
+        print "pre tear down: "
+        print memo.print_memoized()
 
         for i in memo.memoized.values():
             i.memo_clear_cache()
+
+        print "post tear down:"
+        print memo.print_memoized()
 
         clear_profile_time()
 
@@ -205,7 +216,7 @@ class TestCase_memo(unittest.TestCase):
         x = fibonacci2(20, 5, 2)
         assert x == 12586269025, "ASSERT against fixed result"
 
-        for i in xrange(1,11):
+        for i in xrange(1,11): # this test is arguably slightly superfluous.
             input_x = random.randint(1,20)
             input_y = random.randint(0,10)
             input_z = random.randint(0,10)
@@ -303,6 +314,9 @@ class TestCase_memo(unittest.TestCase):
 
         print "end"
 
+    def test_memo_alias(self):
+        n = factorial(20)
+        print 'memo memoized fact', memo.memoized['fact']._cache
 
 def suite():
     my_suite = unittest.TestSuite()
