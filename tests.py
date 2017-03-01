@@ -5,6 +5,7 @@ from guppy import hpy  # must install guppy to run tests (I use a separate conda
 import functools
 import time
 import logging
+import random
 
 logger = logging.getLogger('memo')
 
@@ -187,6 +188,128 @@ class TestCase_memo(unittest.TestCase):
         self.assertTrue(h.size > 10000)
         print h.size
 
+    def test_memo_cannot_memoize_the_same_function_twice(self):
+        pass
+
+    def test_memo_multiple_param(self):
+        @memo.Memo(clean=True)
+        def fibonacci2(n, addn=0, multn=1):
+            n += addn
+            n *= multn
+            if n < 2:
+                return n
+            return fibonacci2(n - 2) + fibonacci2(n - 1)
+
+        x = fibonacci2(10, multn=3)
+        assert x == 832040, "ASSERT against fixed result"
+        x = fibonacci2(20, 5, 2)
+        assert x == 12586269025, "ASSERT against fixed result"
+
+        for i in xrange(1,11):
+            input_x = random.randint(1,20)
+            input_y = random.randint(0,10)
+            input_z = random.randint(0,10)
+            assert fibonacci2(input_x, addn = input_y, multn = input_z) == fibonacci((input_x + input_y ) * input_z)
+            print "random test (fib) n", i, " (x addn multn)", input_x, input_y, input_z
+
+    def test_memo_misc(self):
+
+        class memoize_wrong(object):  # to illustrate caveats of memoizing instance methods
+            def __init__(self, function):
+                self._function = function
+                self._cacheName = '_cache__' + function.__name__
+
+            def __get__(self, instance, cls=None):
+                self._instance = instance
+                return self
+
+            def __call__(self, *args):
+                cache = self._instance.__dict__.setdefault(self._cacheName, {})
+                if cache.has_key(args):
+                    return cache[args]
+                else:
+                    object = cache[args] = self._function(self._instance, *args)
+                    return object
+
+        class Aclass(object):
+            def __init__(self, value):
+                self.value = value
+
+            @memo.Memo
+            def val(self):
+                return self.value
+
+            @memoize_wrong
+            def val_(self):
+                return self.value
+
+            @memo.Memo
+            def plus_one(self):
+                return self.value + 1
+
+            def plus_two(self):
+                return self.value + 2
+
+        val1 = Aclass(1).val
+        val2 = Aclass(2).val
+        print "->", val1(), val2()
+        assert val1() != val2(), "FAIL!"
+
+        val1 = Aclass(1).val_
+        val2 = Aclass(2).val_
+        print "->", val1(), val2()
+        # assert val1() != val2(), "FAIL!"
+
+        o1 = Aclass(1)
+        o2 = Aclass(2)
+
+        import time
+        import sys
+        time.sleep(1)
+        should_be_three = o2.plus_one()
+        o2.value = 10
+        print should_be_three, o2.plus_one(), o1.plus_one()  # 3 3 2
+        o1.value = 100
+        print should_be_three, o2.plus_one(), o1.plus_one()  # 3 3 2 (expected behaviour) we haven't told the cache to clean
+
+        sys.stdout.flush()
+        sys.stderr.flush()
+        print "-----"
+
+        print Aclass.plus_one
+        # memo.memoized[Aclass.plus_one].memo_clear_cache() # deprecated interface style
+        memo.memoized['plus_one'].memo_clear_cache()
+        # TODO: include test for functions of the same name in different classes
+
+        o7 = Aclass(7)
+
+        memoed_o7_plus2 = memo.Memo(
+            o7.plus_two)  # this format is currently not working - interface should probably respect inspection
+
+        res = memoed_o7_plus2()
+
+        print "res ", res
+        o7.value = 200
+        res = memoed_o7_plus2()
+        print "res ", res
+        # memoized[Aclass.plus_two].memo_clear_cache()
+        res = memoed_o7_plus2()
+        print "res ", res
+        print memo.memoized
+
+        print should_be_three, o2.plus_one(), o1.plus_one()  # 3 11 101 (expected behaviour)
+
+        # the cache cannot be expected to track changes in the instance,
+
+        print "end"
+
+
+def suite():
+    my_suite = unittest.TestSuite()
+    my_suite.addTest(unittest.makeSuite(TestCase_memo, 'tests for memo'))
+    return my_suite
+
 
 if __name__ == '__main__':
+    #unittest.TestSuite(suite())
     unittest.main()

@@ -44,25 +44,31 @@ def memo_clean(f):
     return closure
 
 
-memoized  = {}
+memoized = {}
 
 # the following is cleaner but allows for less recursion (takes more stack space) - apparently ~2x
 # using clean = True it also cleans the cache at the end of the call (see examples)
 class _Memo(object):
     "clears cache on last return"
 
-    def __init__(self, func, clean):
+    def __init__(self, func, clean, memo_alias):
         self.func = func
         functools.update_wrapper(self, func)
         self._call_count = 0
         self._cache = {}
         self._clean = clean
         logger.info("memo_clean mode = %s", clean)
-        # memoized[self.func] = self
-        # memoized[self] = self
-        if func.__name__ in memoized:
-            raise BaseException("already memoized: " + func.__name__)
-        memoized[func.__name__] = self
+
+        if memo_alias:
+            slot_name = memo_alias
+        else:
+            slot_name = func.__name__
+
+        logger.info("slot name = %s", slot_name)
+
+        if slot_name in memoized:
+            raise BaseException("already memoized: " + slot_name)
+        memoized[slot_name] = self
 
     def __call__(self,  *args, **kwargs):
         self._call_count += 1
@@ -106,138 +112,26 @@ class _Memo(object):
         logger.info("memo_clean cleared cache explicitly - " + self.func.__name__ + " in " +  str(self))
 
 
-def Memo(function=None, clean=False): # named uppercase because it simply wraps a class
+def Memo(function=None, clean=False, memo_alias = False): # named uppercase because it simply wraps a class
     if function:
-        return _Memo(function, clean=clean)
+        return _Memo(function, clean=clean, memo_alias = memo_alias)
     else:
-#        @functools.wraps(f)
         def closure(f):
-            return _Memo(f, clean=clean)
+            return _Memo(f, clean=clean, memo_alias = memo_alias)
 
         return closure
 
+
+
+# import tests # re-importing causes redefinition of the memoized function and a clash
 
 if __name__ == "__main__":
     #logging.basicConfig(level=logging.DEBUG)
     logging.basicConfig(level=logging.INFO)
     #logging.basicConfig(level=logging.WARNING)
+    import tests
 
-    @Memo
-#    @memo_clean # memo_clean is lighter and allows for deeper recursion (~x2)
-    def fibonacci(n):
-        if n < 2:
-            return n
-        return fibonacci(n - 2) + fibonacci(n - 1)
+    suite = tests.unittest.TestLoader().loadTestsFromTestCase(tests.TestCase_memo)
+    tests.unittest.TextTestRunner(verbosity=2).run(suite)
 
-    @Memo(clean = True)
-    def fibonacci2(n, addn = 0, multn = 1):
-        n += addn
-        n *= multn
-        if n < 2:
-            return n
-        return fibonacci2(n - 2) + fibonacci2(n - 1)
-    import sys
-    print sys.getrecursionlimit()
-
-    sys.setrecursionlimit(2000)
-
-    result = fibonacci(300)
-    assert result, 222232244629420445529739893461909967206666939096499764990979600
-    print result
-
-    print fibonacci2(10, multn=3)
-    print fibonacci2(20, 5, 2)
-
-    class memoize_wrong(object): # to illustrate caveats of memoizing instance methods
-        def __init__(self, function):
-            self._function = function
-            self._cacheName = '_cache__' + function.__name__
-
-        def __get__(self, instance, cls=None):
-            self._instance = instance
-            return self
-
-        def __call__(self, *args):
-            cache = self._instance.__dict__.setdefault(self._cacheName, {})
-            if cache.has_key(args):
-                return cache[args]
-            else:
-                object = cache[args] = self._function(self._instance, *args)
-                return object
-
-    class Aclass(object):
-        def __init__(self, value):
-            self.value = value
-
-        @Memo
-        def val(self):
-            return self.value
-
-        @memoize_wrong
-        def val_(self):
-            return self.value
-
-        @Memo
-        def plus_one(self):
-            return self.value + 1
-
-        def plus_two(self):
-            return self.value + 2
-
-    val1 = Aclass(1).val
-    val2 = Aclass(2).val
-    print "->", val1(), val2()
-    assert val1() != val2(), "FAIL!"
-
-    val1 = Aclass(1).val_
-    val2 = Aclass(2).val_
-    print "->", val1(), val2()
-    #assert val1() != val2(), "FAIL!"
-
-    o1 = Aclass(1)
-    o2 = Aclass(2)
-
-    import time
-    import sys
-    time.sleep(1)
-    should_be_three = o2.plus_one()
-    o2.value = 10
-    print should_be_three, o2.plus_one(), o1.plus_one() # 3 3 2
-    o1.value = 100
-    print should_be_three, o2.plus_one(), o1.plus_one() # 3 3 2 (expected behaviour) we haven't told the cache to clean
-
-    sys.stdout.flush()
-    sys.stderr.flush()
-    print "-----"
-    time.sleep(1)
-    print memoized
-    print "fibonacci", fibonacci, memoized['fibonacci']
-
-    print Aclass.plus_one
-    #memoized[Aclass.plus_one].memo_clear_cache()
-    memoized['plus_one'].memo_clear_cache()
-    # TODO: include test for functions of the same name in different classes
-
-    o7 = Aclass(7)
-
-    memoed_o7_plus2 = Memo(o7.plus_two) # this format is currently not working - interface should probably respect inspection
-
-    res = memoed_o7_plus2()
-
-    print "res ", res
-    o7.value = 200
-    res = memoed_o7_plus2()
-    print "res ", res
-    #memoized[Aclass.plus_two].memo_clear_cache()
-    res = memoed_o7_plus2()
-    print "res ", res
-    print memoized
-
-
-
-    print should_be_three, o2.plus_one(), o1.plus_one() # 3 11 101 (expected behaviour)
-
-    # the cache cannot be expected to track changes in the instance,
-
-    print "end"
-
+    tests.unittest.TestSuite(tests.suite())
