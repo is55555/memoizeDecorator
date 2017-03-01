@@ -44,7 +44,7 @@ def memo_clean(f):
     return closure
 
 
-memoized = {}
+memoized  = {}
 
 # the following is cleaner but allows for less recursion (takes more stack space) - apparently ~2x
 # using clean = True it also cleans the cache at the end of the call (see examples)
@@ -58,7 +58,11 @@ class _Memo(object):
         self._cache = {}
         self._clean = clean
         logger.info("memo_clean mode = %s", clean)
-        memoized[self.func] = self
+        # memoized[self.func] = self
+        # memoized[self] = self
+        if func.__name__ in memoized:
+            raise BaseException("already memoized: " + func.__name__)
+        memoized[func.__name__] = self
 
     def __call__(self,  *args, **kwargs):
         self._call_count += 1
@@ -93,9 +97,10 @@ class _Memo(object):
     def __get__(self, obj, obj_type=None):  # support instance methods
         if obj is None:
             return self.func
-        return functools.partial(self, obj)
+        f = functools.partial(self, obj)
+        f.__name__ = self.func.__name__
+        return f
 
-    #@classmethod
     def memo_clear_cache(self):
         self._cache.clear()
         logger.info("memo_clean cleared cache explicitly - " + self.func.__name__ + " in " +  str(self))
@@ -105,7 +110,7 @@ def Memo(function=None, clean=False): # named uppercase because it simply wraps 
     if function:
         return _Memo(function, clean=clean)
     else:
-#        @functools.wraps(function)
+#        @functools.wraps(f)
         def closure(f):
             return _Memo(f, clean=clean)
 
@@ -133,29 +138,15 @@ if __name__ == "__main__":
         return fibonacci2(n - 2) + fibonacci2(n - 1)
     import sys
     print sys.getrecursionlimit()
+
     sys.setrecursionlimit(2000)
 
-    #result = fibonacci(161)
-    result = fibonacci(162)
-
-    #result = fibonacci(166)
-    #result = fibonacci(167)
-
-    print fibonacci(330)
-#    print fibonacci(331) # first to fail with MemoClean with default recursionlimit
-    #print fibonacci(662)
-#    print fibonacci(663) # first to fail with memo_clean with default recursionlimit
-
-    #result = fibonacci(300)
-    #assert result, 222232244629420445529739893461909967206666939096499764990979600
+    result = fibonacci(300)
+    assert result, 222232244629420445529739893461909967206666939096499764990979600
     print result
 
     print fibonacci2(10, multn=3)
     print fibonacci2(20, 5, 2)
-
-    print [fibonacci(i) for i in xrange(151)]
-
-    print fibonacci
 
     class memoize_wrong(object): # to illustrate caveats of memoizing instance methods
         def __init__(self, function):
@@ -219,8 +210,13 @@ if __name__ == "__main__":
     sys.stderr.flush()
     print "-----"
     time.sleep(1)
-    memoized[Aclass.plus_one].memo_clear_cache()
-        # TODO: include test for functions of the same name in different classes
+    print memoized
+    print "fibonacci", fibonacci, memoized['fibonacci']
+
+    print Aclass.plus_one
+    #memoized[Aclass.plus_one].memo_clear_cache()
+    memoized['plus_one'].memo_clear_cache()
+    # TODO: include test for functions of the same name in different classes
 
     o7 = Aclass(7)
 
@@ -236,6 +232,7 @@ if __name__ == "__main__":
     res = memoed_o7_plus2()
     print "res ", res
     print memoized
+
 
 
     print should_be_three, o2.plus_one(), o1.plus_one() # 3 11 101 (expected behaviour)

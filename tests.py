@@ -99,7 +99,12 @@ class TestCase_memo(unittest.TestCase):
         pass
 
     def tearDown(self):
-        memo.memoized.clear()
+        print "tearDown"
+        print memo.memoized
+
+        for i in memo.memoized.values():
+            i.memo_clear_cache()
+
         clear_profile_time()
 
     def test_memo(self):
@@ -128,7 +133,8 @@ class TestCase_memo(unittest.TestCase):
         hp.setrelheap()
         prev_size = hp.heap().size
         fibonacci(100)
-        memo.memoized.clear()
+        time.sleep(1)
+        memo.memoized['fibonacci'].memo_clear_cache()
         h = hp.heap()
         print h
         print "h.size (h.size - prevSize) =", h.size, h.size - prev_size
@@ -146,7 +152,6 @@ class TestCase_memo(unittest.TestCase):
         # (it clears the cache between calls, going into fib many times over)
         self.assertTrue(PROF_DATA['fibonacci']['avg'] < 0.1)
 
-
     def test_memo_clear_speed(self):
         print "----------"
         print "test - speed across calls - clearing cache on each call"
@@ -157,6 +162,30 @@ class TestCase_memo(unittest.TestCase):
         calc_and_print_prof_data() # avg time should be >= 0.05 and <= 0.1 in any remotely modern computer
         # (close to 0.05 which is what the recursive call takes as a minimum)
         self.assertTrue(PROF_DATA['fibonacci_clean']['avg'] > 0.1)
+
+    def test_memo_selective_clearing(self):
+        pass
+
+    def test_memo_explicit_clear_and_populate_again(self):
+        print "----------"
+        print "test - explicit clear and populate again - preserving cache"
+        hp.setrelheap()
+        fibonacci(100)
+        h = hp.heap()
+        print "before clearing"
+        print h
+        print memo.memoized
+        time.sleep(1)
+        memo.memoized['fibonacci'].memo_clear_cache()
+        h = hp.heap()
+        print "after clearing"
+        print h
+        fibonacci(100)
+        h = hp.heap()
+        print "repopulated"
+        print h
+        self.assertTrue(h.size > 10000)
+        print h.size
 
 
 if __name__ == '__main__':
